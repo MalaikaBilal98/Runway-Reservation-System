@@ -16,9 +16,9 @@ struct LandingNode {
     LandingNode* left;
     LandingNode* right;
     LandingNode* p; // Parent pointer
-    int count;      // Count of nodes in the subtree rooted at this node
+    int count; // Count of nodes in the subtree rooted at this node
 
-    LandingNode(Time time) : landingTime(time), left(nullptr), right(nullptr), p(nullptr), count(1) {}
+    LandingNode(Time timee) : landingTime(timee), left(nullptr), right(nullptr), p(nullptr), count(1) {}
 };
 
 // Reserved landing times
@@ -52,16 +52,22 @@ LandingNode* treeMaximum(LandingNode* x) {
     return x;
 }
 
-// Tree successor (Get next landing time)
-LandingNode* treeSuccessor(LandingNode* x) {
-    if (x->right != nullptr)
-        return treeMinimum(x->right);
-    LandingNode* y = x->p;
-    while (y != nullptr && x == y->right) {
-        x = y;
-        y = y->p;
+
+// Corrected Tree successor (Get next landing time)
+LandingNode* treeSuccessor(LandingNode* root, LandingNode* x, int userHours, int userMinutes) {
+    LandingNode* successor = nullptr;
+
+    while (root != nullptr) {
+        if (userHours < root->landingTime.hours ||
+            (userHours == root->landingTime.hours && userMinutes < root->landingTime.minutes)) {
+            successor = root;
+            root = root->left;
+        } else {
+            root = root->right;
+        }
     }
-    return y;
+
+    return successor;
 }
 
 // Tree insert with k-minute check
@@ -141,13 +147,13 @@ void treeDelete(LandingNode*& root, LandingNode* z) {
 }
 
 // Rank function
-int rank(LandingNode* root, Time time) {
+int rank(LandingNode* root, Time timee) {
     int count = 0;
     LandingNode* current = root;
 
     while (current != nullptr) {
-        if (time.hours < current->landingTime.hours ||
-            (time.hours == current->landingTime.hours && time.minutes < current->landingTime.minutes)) {
+        if (timee.hours < current->landingTime.hours ||
+            (timee.hours == current->landingTime.hours && timee.minutes < current->landingTime.minutes)) {
             current = current->left;
         } else {
             count++;
@@ -169,65 +175,32 @@ void displayNodes(LandingNode* root) {
 }
 
 // Reserve function
-bool reserveLandingTime(int requestedTime, int k) {
-    if (requestedTime < 0) {
-        cout << "Error: Requested time is in the past." << endl;
-        return false;
-    }
 
-    for (int i = 0; i < reservedCount; ++i) {
-        if (abs(requestedTime - reservedTimes[i]) < k) {
-            cout << "Error: Requested time conflicts with an existing reservation." << endl;
-            return false;
+
+// Search function
+LandingNode* searchLandingTime(LandingNode* root, int userHours, int userMinutes) {
+    while (root != nullptr) {
+        if (userHours < root->landingTime.hours ||
+            (userHours == root->landingTime.hours && userMinutes < root->landingTime.minutes)) {
+            root = root->left;
+        } else if (userHours > root->landingTime.hours ||
+                   (userHours == root->landingTime.hours && userMinutes > root->landingTime.minutes)) {
+            root = root->right;
+        } else {
+            return root; // Found the landing time
         }
     }
 
-    reservedTimes[reservedCount++] = requestedTime;
-    // Sort reservedTimes (you can implement a simple sorting algorithm or use an existing one)
-    for (int i = 0; i < reservedCount - 1; ++i) {
-        for (int j = i + 1; j < reservedCount; ++j) {
-            if (reservedTimes[i] > reservedTimes[j]) {
-                int temp = reservedTimes[i];
-                reservedTimes[i] = reservedTimes[j];
-                reservedTimes[j] = temp;
-            }
-        }
-    }
-
-    return true;
-}
-
-// Land function
-bool landPlane(LandingNode*& root, int now) {
-    if (reservedCount == 0) {
-        cout << "Error: No reserved landing times. Cannot land a plane." << endl;
-        return false;
-    }
-
-    int earliestTime = reservedTimes[0];
-    if (earliestTime != now) {
-        cout << "Error: No plane scheduled to land at the current time." << endl;
-        return false;
-    }
-
-    // Remove the earliest landing time from reservedTimes
-    for (int i = 1; i < reservedCount; ++i) {
-        reservedTimes[i - 1] = reservedTimes[i];
-    }
-    reservedCount--;
-
-    // Find the node with the earliest landing time and delete it from the tree
-    LandingNode* earliestNode = treeMinimum(root);
-    treeDelete(root, earliestNode);
-
-    cout << "Plane landed successfully at time: " << now << endl;
-
-    return true;
+    return nullptr; // Landing time not found
 }
 
 int main() {
     int option;
     LandingNode* root = nullptr;
+    int k; // Declare k outside the loop
+
+    cout << "Enter k minutes: ";
+    cin >> k;
 
 do {
         cout << "\nChoose an option:\n";
@@ -237,8 +210,8 @@ do {
         cout << "4. Maximum landing time\n";
         cout << "5. Rank of a particular landing time\n";
         cout << "6. Get next landing time\n";
-        cout << "7. Reserve a landing time\n";
-        cout << "8. Land the plane\n";
+        cout << "7. Display landing times\n";  // Added option for display
+        cout << "8. Search landing time\n";
         cout << "9. Quit program\n";
 
         
@@ -246,15 +219,23 @@ do {
         cin >> option;
 
         switch (option) {
-            case 1: {
-                int hours, minutes;
-                cout << "Enter landing time (hours minutes): ";
-                cin >> hours >> minutes;
-                Time landingTime(hours, minutes);
-                int k = 3; // Assuming k = 3 as per the example
-                treeInsert(root, new LandingNode(landingTime), k);
-                break;
-            }
+           case 1: {
+    int hours, minutes;
+    cout << "Enter landing time (hours minutes): ";
+    cin >> hours >> minutes;
+
+    // Validate hours and minutes
+    if (hours < 0 || hours > 24 || minutes < 0 || minutes > 59) {
+        cout << "Error: Invalid time. Hours must be between 0 and 24, and minutes must be between 0 and 59." << endl;
+        break;
+    }
+
+    Time landingTime(hours, minutes);
+    //int k = 3; // Assuming k = 3 as per the example
+    treeInsert(root, new LandingNode(landingTime), k);
+    break;
+}
+
             case 2:
                 if (root != nullptr) {
                     cout << "Deleting the initial landing time." << endl;
@@ -283,30 +264,62 @@ do {
                 cout << "Number of planes landing before or at " << landingTime.hours << ":" << landingTime.minutes << ": " << ranking << endl;
                 break;
             }
-            case 6: {
-                if (root != nullptr) {
-                    LandingNode* nextLanding = treeSuccessor(treeMinimum(root));
-                    cout << "Next landing time: " << nextLanding->landingTime.hours << ":" << nextLanding->landingTime.minutes << endl;
-                } else {
-                    cout << "No landing time. Tree is empty." << endl;
-                }
-                break;
-            }
-            case 7: {
-                int requestedTime;
-                cout << "Enter requested landing time: ";
-                cin >> requestedTime;
-                int k = 3; // Assuming k = 3 as per the example
-                reserveLandingTime(requestedTime, k);
-                break;
-            }
-            case 8: {
-                int now;
-                cout << "Enter current time: ";
-                cin >> now;
-                landPlane(root, now);
-                break;
-            }
+           case 6: {
+    int userHours, userMinutes;
+    cout << "Enter user-provided landing time (hours minutes): ";
+    cin >> userHours >> userMinutes;
+
+    // Validate user-provided hours and minutes
+    if (userHours < 0 || userHours > 24 || userMinutes < 0 || userMinutes > 59) {
+        cout << "Error: Invalid time. Hours must be between 0 and 24, and minutes must be between 0 and 59." << endl;
+        break;
+    }
+
+    if (root != nullptr) {
+        LandingNode* nextLanding = treeSuccessor(root, root, userHours, userMinutes);
+        if (nextLanding != nullptr) {
+            cout << "Next landing time: " << nextLanding->landingTime.hours << ":" << nextLanding->landingTime.minutes << endl;
+        } else {
+            cout << "No next landing time after the provided time." << endl;
+        }
+    } else {
+        cout << "No landing time. Tree is empty." << endl;
+    }
+    break;
+}
+
+            // Add a Display case
+case 7: {
+    if (root != nullptr && root->count > 0) {
+        displayNodes(root);
+    } else {
+        cout << "No landing times to display. Tree is empty." << endl;
+    }
+    break;
+}
+
+// Case for searching in the main
+case 8: {
+    int userHours, userMinutes;
+    cout << "Enter landing time to search (hours minutes): ";
+    cin >> userHours >> userMinutes;
+
+    // Validate user-provided hours and minutes
+    if (userHours < 0 || userHours > 24 || userMinutes < 0 || userMinutes > 59) {
+        cout << "Error: Invalid time. Hours must be between 0 and 24, and minutes must be between 0 and 59." << endl;
+        break;
+    }
+
+    LandingNode* foundNode = searchLandingTime(root, userHours, userMinutes);
+
+    if (foundNode != nullptr) {
+        cout << "Landing time found: " << foundNode->landingTime.hours << ":" << foundNode->landingTime.minutes << endl;
+    } else {
+        cout << "Landing time not found." << endl;
+    }
+    break;
+}
+            
             case 9:
                 // Clean up memory (optional)
                 // You would typically have a more sophisticated memory management system
@@ -325,4 +338,3 @@ do {
         
     
 }
-
